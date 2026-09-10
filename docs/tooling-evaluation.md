@@ -62,8 +62,24 @@ Two problems in that one result. `insert_many` is called without `ordered=False`
 
 **`sqlite3` piped to `mongoimport`.** Close to workable. Two obstacles: `.mode json` emits a wrapped array rather than newline-delimited JSON, so a multi-gigabyte stream would need bracket and comma stripping; and `.mode csv` risks mangling `statements.value`, which holds definitions containing quotes and newlines. A carefully escaped tab-separated pipeline probably does work.
 
-## Where that leaves this repository
+## Reading needs no third-party library at all
 
-The read side and the write side each have one specific gap in the shared library, and both look small. Closing them would let this loader use the common abstraction for both halves rather than adding another bespoke writer, which is the better outcome for everyone downstream.
+The two read-side failures above are worth reporting, but they are not obstacles this project has to clear, because the premise behind them was wrong.
 
-Until then the loader talks to the driver directly, and the gaps are tracked upstream rather than worked around silently.
+`sqlite3` is in the Python standard library. Reading a SQLite file needs no dependency, and a cursor streams natively, which is the only property that matters at this scale. Every measurement in [`source-data.md`](source-data.md), including a `GROUP BY` over 52 million rows that returned in about seven seconds, was taken through stdlib `sqlite3`.
+
+DuckDB and ibis entered the picture only because the shared library's SQLite handles route through them. Adopting that path would mean adding two substantial dependencies, and waiting on two upstream fixes, in order to wrap something the standard library already does well for this access pattern. One of the two cannot open a semsql build at all.
+
+So for reads, the established library is the standard library.
+
+## Writing is a different case
+
+There the shared library is not wrapping stdlib. It provides connection handling, a collection abstraction and the interface other tools in this ecosystem already use, over a driver that would otherwise be called directly. Its gaps are small, specific and worth closing upstream rather than routing around, and closing them benefits every consumer rather than just this repository.
+
+## The resulting choice
+
+Standard-library `sqlite3` for reads. The shared library for writes, once the write-path gaps are addressed upstream; the driver directly until then, with the gaps tracked rather than silently worked around.
+
+This is deliberately not symmetrical. Using an abstraction on both halves for consistency's sake would cost two dependencies and two blocked fixes, and would make the read path slower and more fragile than the eight lines of stdlib it replaced. Consistency is not worth that here.
+
+The two read-side defects are reported upstream as a courtesy, since both are real and reproduced, and neither is specific to this project: the DuckDB handle cannot open any semsql build, and paged iteration is broken for every collection on the ibis backend.
