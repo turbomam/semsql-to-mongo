@@ -46,9 +46,51 @@ These were raised in review, or found while looking for prior art. Each is a rea
 
 **A triplestore.** semsql is derived from RDF, so loading it into a document store moves further from a form that already had query semantics. That is a fair criticism of the destination, and the answer is again that the destination is fixed by what the rest of the system reads.
 
-## Status
+## Usage
 
-Early. The scope above is settled; the implementation is not.
+```sh
+semsql-to-mongo --sqlite ontology.db --mongo-db ontology \
+  --tables statements,entailed_edge,prefix --batch-size 5000
+semsql-to-mongo --sqlite ontology.db --mongo-db ontology --dry-run
+```
+
+Connection settings come from `MONGO_HOST` (default `localhost`), `MONGO_PORT`
+(default `27017`), `MONGO_USERNAME`, and `MONGO_PASSWORD`. Set credentials through
+your environment or secret manager. `MONGO_DB` supplies the database when
+`--mongo-db` is omitted. The host must be a hostname, not a connection URI.
+
+All three tables are selected by default. `--limit N` caps the rows read from
+each selected table, including duplicate rows; zero reads none. Source counts
+always describe the full selected tables. Dry runs inspect counts, ontology
+versions, and the file checksum without contacting MongoDB; read, inserted, and
+skipped counts are zero, and no provenance is written.
+
+Rows stream through bounded batches. Unique natural-key indexes are created
+before insertion. Duplicate rows, including upstream duplicates in `prefix`,
+are logged and skipped. Other write errors stop the load. Completed batches
+remain after failure; rerunning skips those rows. A failed load has no success
+provenance document. Each successful invocation records its own provenance,
+including both ontology version fields, full source counts, actual read,
+inserted and skipped counts, the limit, and a UTC completion timestamp.
+
+Use a completed SQLite build and keep the source file unchanged during loading,
+so its checksum identifies the data being copied. Missing tables or natural-key
+columns fail before any destination writes.
+
+## Development
+
+```sh
+uv sync
+uv run pytest
+uv run ruff format --check .
+uv run ruff check .
+```
+
+MongoDB integration tests skip unless `MONGO_PASSWORD` is set. When enabled,
+they require permission to list, create, and drop scratch databases and use
+random scratch collection names. No production collections are used.
+The pre-commit configuration includes gitleaks; activate it with
+`pre-commit install` in a development environment with pre-commit installed.
 
 ## License
 
