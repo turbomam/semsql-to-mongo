@@ -265,3 +265,25 @@ def test_sqlite_cursor_never_fetches_all(sqlite_path: Path) -> None:
     with closing(sqlite3.connect(sqlite_path, factory=_StreamingConnection)) as connection:
         assert connection.execute("SELECT COUNT(*) FROM statements").fetchone()[0] == 5
         assert sum(1 for _ in iter_rows(connection, "statements")) == 5
+
+
+def test_dry_run_does_not_require_a_destination(sqlite_path, monkeypatch):
+    """A dry run must not demand a MongoDB it never contacts.
+
+    Requiring `--mongo-db` under `--dry-run` put friction on the one mode that
+    cannot need it. The check moved into the command body so a real load still
+    fails early, with a message saying why, rather than click's generic one.
+    """
+    from click.testing import CliRunner
+
+    from semsql_to_mongo.cli import cli
+
+    monkeypatch.delenv("MONGO_DB", raising=False)
+
+    result = CliRunner().invoke(cli, ["--sqlite", str(sqlite_path), "--dry-run"])
+    assert result.exit_code == 0, result.output
+
+    # And the inverse, or the test above would pass on a command that never checks.
+    result = CliRunner().invoke(cli, ["--sqlite", str(sqlite_path)])
+    assert result.exit_code != 0
+    assert "--mongo-db is required unless --dry-run" in result.output

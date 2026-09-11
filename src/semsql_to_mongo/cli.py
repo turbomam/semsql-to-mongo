@@ -11,7 +11,10 @@ from semsql_to_mongo.loader import LOGGER, NATURAL_KEYS, load, mongo_client, val
 
 @click.command()
 @click.option("--sqlite", "path", required=True, type=click.Path(exists=True, dir_okay=False, path_type=Path))
-@click.option("--mongo-db", envvar="MONGO_DB", required=True, help="Destination database; defaults to MONGO_DB.")
+# Not required: a dry run never contacts MongoDB, so demanding a destination it
+# will not read is friction on the one mode that cannot need it. Checked below
+# instead, so a real load still fails early and with a message that says why.
+@click.option("--mongo-db", envvar="MONGO_DB", help="Destination database; defaults to MONGO_DB. Not needed with --dry-run.")
 @click.option("--tables", default=",".join(NATURAL_KEYS), show_default=True)
 @click.option("--batch-size", default=5000, type=click.IntRange(min=1), show_default=True)
 @click.option("--limit", type=click.IntRange(min=0), help="Maximum rows read per table.")
@@ -24,6 +27,8 @@ def cli(path: Path, mongo_db: str, tables: str, batch_size: int, limit: int | No
     LOGGER.addHandler(handler)
     LOGGER.setLevel(logging.INFO)
     try:
+        if not dry_run and not mongo_db:
+            raise click.UsageError("--mongo-db is required unless --dry-run is given (or set MONGO_DB).")
         if dry_run:
             report = load(path, tables=selected, batch_size=batch_size, limit=limit, dry_run=True)
         else:
