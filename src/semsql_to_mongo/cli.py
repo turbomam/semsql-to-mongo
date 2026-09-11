@@ -14,7 +14,9 @@ from semsql_to_mongo.loader import LOGGER, NATURAL_KEYS, load, mongo_client, val
 # Not required: a dry run never contacts MongoDB, so demanding a destination it
 # will not read is friction on the one mode that cannot need it. Checked below
 # instead, so a real load still fails early and with a message that says why.
-@click.option("--mongo-db", envvar="MONGO_DB", help="Destination database; defaults to MONGO_DB. Not needed with --dry-run.")
+@click.option(
+    "--mongo-db", envvar="MONGO_DB", help="Destination database; defaults to MONGO_DB. Not needed with --dry-run."
+)
 @click.option("--tables", default=",".join(NATURAL_KEYS), show_default=True)
 @click.option("--batch-size", default=5000, type=click.IntRange(min=1), show_default=True)
 @click.option("--limit", type=click.IntRange(min=0), help="Maximum rows read per table.")

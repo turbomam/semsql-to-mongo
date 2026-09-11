@@ -268,7 +268,8 @@ def test_sqlite_cursor_never_fetches_all(sqlite_path: Path) -> None:
 
 
 def test_dry_run_does_not_require_a_destination(sqlite_path, monkeypatch):
-    """A dry run must not demand a MongoDB it never contacts.
+    """
+    A dry run must not demand a MongoDB it never contacts.
 
     Requiring `--mongo-db` under `--dry-run` put friction on the one mode that
     cannot need it. The check moved into the command body so a real load still
